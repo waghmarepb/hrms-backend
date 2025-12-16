@@ -1,123 +1,169 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class AccountTransaction extends Model
+class AccountTransaction
 {
-    use HasFactory;
-
+    private $db;
     protected $table = 'acc_transaction';
     protected $primaryKey = 'ID';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'VNo',
-        'Vtype',
-        'VDate',
-        'COAID',
-        'Narration',
-        'Debit',
-        'Credit',
-        'IsPosted',
-        'CreateBy',
-        'CreateDate',
-        'UpdateBy',
-        'UpdateDate',
-        'IsAppove',
-    ];
-
-    protected $casts = [
-        'VDate' => 'date',
-        'Debit' => 'decimal:2',
-        'Credit' => 'decimal:2',
-        'IsPosted' => 'boolean',
-        'IsAppove' => 'boolean',
-        'CreateDate' => 'datetime',
-        'UpdateDate' => 'datetime',
-    ];
 
     // Voucher Types Constants
     const VTYPE_DEBIT = 'DV';
     const VTYPE_CREDIT = 'CV';
     const VTYPE_CONTRA = 'ContV';
     const VTYPE_JOURNAL = 'JV';
-    const VTYPE_CASH_ADJUSTMENT = 'AJ-C';
-    const VTYPE_BANK_ADJUSTMENT = 'AJ-B';
-    const VTYPE_BALANCE_ADJUSTMENT = 'AJ';
 
-    /**
-     * Get the chart of account for this transaction
-     */
-    public function chartOfAccount()
+    public function __construct()
     {
-        return $this->belongsTo(ChartOfAccount::class, 'COAID', 'HeadCode');
+        $this->db = Database::getInstance();
     }
 
     /**
-     * Get the creator of this transaction
+     * Get vouchers with summary (grouped by VNo)
      */
-    public function creator()
+    public function getVouchersSummary($filters = [])
     {
-        return $this->belongsTo(User::class, 'CreateBy', 'user_id');
+        $sql = "SELECT VNo, Vtype, VDate, IsAppove, CreateDate,
+                       SUM(Debit) as total_debit,
+                       SUM(Credit) as total_credit,
+                       MAX(Narration) as narration
+                FROM {$this->table}
+                WHERE 1=1";
+        
+        $params = [];
+
+        if (isset($filters['vtype'])) {
+            $sql .= " AND Vtype = ?";
+            $params[] = $filters['vtype'];
+        }
+
+        if (isset($filters['from_date']) && isset($filters['to_date'])) {
+            $sql .= " AND VDate BETWEEN ? AND ?";
+            $params[] = $filters['from_date'];
+            $params[] = $filters['to_date'];
+        }
+
+        if (isset($filters['is_approved'])) {
+            $sql .= " AND IsAppove = ?";
+            $params[] = $filters['is_approved'];
+        }
+
+        $sql .= " GROUP BY VNo, Vtype, VDate, IsAppove, CreateDate";
+        $sql .= " ORDER BY VDate DESC, VNo DESC";
+        $sql .= " LIMIT 50";
+
+        return $this->db->query($sql, $params);
     }
 
     /**
-     * Scope for approved transactions
+     * Get transactions by voucher number
      */
-    public function scopeApproved($query)
+    public function getByVoucherNo($voucherNo, $withAccount = true)
     {
-        return $query->where('IsAppove', 1);
+        if ($withAccount) {
+            $sql = "SELECT t.*, a.HeadName, a.HeadCode, a.HeadType
+                    FROM {$this->table} t
+                    LEFT JOIN acc_coa a ON t.COAID = a.HeadCode
+                    WHERE t.VNo = ?
+                    ORDER BY t.ID";
+        } else {
+            $sql = "SELECT * FROM {$this->table} WHERE VNo = ? ORDER BY ID";
+        }
+
+        return $this->db->query($sql, [$voucherNo]);
     }
 
     /**
-     * Scope for posted transactions
+     * Create transaction entry
      */
-    public function scopePosted($query)
+    public function create($data)
     {
-        return $query->where('IsPosted', 1);
+        $data['CreateDate'] = date('Y-m-d H:i:s');
+        $data['IsPosted'] = $data['IsPosted'] ?? 1;
+        $data['IsAppove'] = $data['IsAppove'] ?? 0;
+
+        return $this->db->table($this->table)->insert($data);
     }
 
     /**
-     * Scope by voucher type
+     * Update transactions by voucher number
      */
-    public function scopeByVoucherType($query, $type)
+    public function updateByVoucherNo($voucherNo, $data)
     {
-        return $query->where('Vtype', $type);
+        $data['UpdateDate'] = date('Y-m-d H:i:s');
+        
+        return $this->db->table($this->table)
+            ->where('VNo', $voucherNo)
+            ->update($data);
     }
 
     /**
-     * Scope by voucher number
+     * Delete transactions by voucher number
      */
-    public function scopeByVoucherNo($query, $voucherNo)
+    public function deleteByVoucherNo($voucherNo)
     {
-        return $query->where('VNo', $voucherNo);
+        return $this->db->table($this->table)
+            ->where('VNo', $voucherNo)
+            ->delete();
     }
 
     /**
-     * Scope by date range
+     * Generate voucher number
      */
-    public function scopeDateRange($query, $from, $to)
+    public function generateVoucherNumber($type)
     {
-        return $query->whereBetween('VDate', [$from, $to]);
+        $result = $this->db->table($this->table)
+            ->where('Vtype', $type)
+            ->orderBy('VNo', 'DESC')
+            ->first();
+
+        if ($result) {
+            // Extract number from last voucher and increment
+            $lastNo = (int) preg_replace('/\D/', '', $result['VNo']);
+            $newNo = $lastNo + 1;
+        } else {
+            $newNo = 1;
+        }
+
+        return $type . '-' . str_pad($newNo, 6, '0', STR_PAD_LEFT);
     }
 
     /**
-     * Get debit transactions
+     * Get transactions by date range
      */
-    public function scopeDebit($query)
+    public function getByDateRange($fromDate, $toDate, $coaId = null)
     {
-        return $query->where('Debit', '>', 0);
+        $query = $this->db->table($this->table)
+            ->whereBetween('VDate', [$fromDate, $toDate]);
+
+        if ($coaId) {
+            $query->where('COAID', $coaId);
+        }
+
+        return $query->orderBy('VDate')->orderBy('VNo')->get();
     }
 
     /**
-     * Get credit transactions
+     * Get debit/credit summary for an account
      */
-    public function scopeCredit($query)
+    public function getAccountSummary($coaId, $fromDate = null, $toDate = null)
     {
-        return $query->where('Credit', '>', 0);
+        $sql = "SELECT 
+                    SUM(Debit) as total_debit,
+                    SUM(Credit) as total_credit,
+                    COUNT(*) as transaction_count
+                FROM {$this->table}
+                WHERE COAID = ?";
+        
+        $params = [$coaId];
+
+        if ($fromDate && $toDate) {
+            $sql .= " AND VDate BETWEEN ? AND ?";
+            $params[] = $fromDate;
+            $params[] = $toDate;
+        }
+
+        $result = $this->db->query($sql, $params);
+        return $result[0] ?? null;
     }
 }
 

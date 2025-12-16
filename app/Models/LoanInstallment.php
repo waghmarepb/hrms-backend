@@ -1,82 +1,96 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class LoanInstallment extends Model
+class LoanInstallment
 {
-    use HasFactory;
+    private $db;
+    private $table = 'loan_installment';
+    private $primaryKey = 'loan_inst_id';
 
-    protected $table = 'loan_installment';
-    protected $primaryKey = 'loan_inst_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'loan_id',
-        'employee_id',
-        'installment_amount',
-        'payment',
-        'date',
-        'received_by',
-        'installment_no',
-    ];
-
-    protected $casts = [
-        'installment_amount' => 'decimal:2',
-        'payment' => 'decimal:2',
-        'date' => 'date',
-        'installment_no' => 'integer',
-    ];
-
-    /**
-     * Get the loan this installment belongs to
-     */
-    public function loan()
+    public function __construct()
     {
-        return $this->belongsTo(Loan::class, 'loan_id', 'loan_id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get the employee who took the loan
-     */
-    public function employee()
+    public function getAll($filters = [])
     {
-        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+        $sql = "SELECT 
+                    li.*,
+                    CONCAT(e.first_name, ' ', IFNULL(e.middle_name, ''), ' ', e.last_name) as employee_name,
+                    CONCAT(r.first_name, ' ', IFNULL(r.middle_name, ''), ' ', r.last_name) as receiver_name
+                FROM {$this->table} li
+                LEFT JOIN employee_history e ON li.employee_id = e.employee_id
+                LEFT JOIN employee_history r ON li.received_by = r.employee_id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['loan_id'])) {
+            $sql .= " AND li.loan_id = ?";
+            $params[] = $filters['loan_id'];
+        }
+        
+        if (isset($filters['employee_id'])) {
+            $sql .= " AND li.employee_id = ?";
+            $params[] = $filters['employee_id'];
+        }
+        
+        $sql .= " ORDER BY li.date DESC";
+        
+        return $this->db->select($sql, $params);
     }
 
-    /**
-     * Get the receiver/supervisor
-     */
-    public function receiver()
+    public function findById($id)
     {
-        return $this->belongsTo(Employee::class, 'received_by', 'employee_id');
+        $sql = "SELECT 
+                    li.*,
+                    CONCAT(e.first_name, ' ', IFNULL(e.middle_name, ''), ' ', e.last_name) as employee_name,
+                    CONCAT(r.first_name, ' ', IFNULL(r.middle_name, ''), ' ', r.last_name) as receiver_name
+                FROM {$this->table} li
+                LEFT JOIN employee_history e ON li.employee_id = e.employee_id
+                LEFT JOIN employee_history r ON li.received_by = r.employee_id
+                WHERE li.{$this->primaryKey} = ?
+                LIMIT 1";
+        
+        return $this->db->selectOne($sql, [$id]);
     }
 
-    /**
-     * Scope by loan
-     */
-    public function scopeForLoan($query, $loanId)
+    public function findByLoan($loanId)
     {
-        return $query->where('loan_id', $loanId);
+        return $this->getAll(['loan_id' => $loanId]);
     }
 
-    /**
-     * Scope by employee
-     */
-    public function scopeForEmployee($query, $employeeId)
+    public function create($data)
     {
-        return $query->where('employee_id', $employeeId);
+        return $this->db->insert($this->table, $data);
     }
 
-    /**
-     * Scope by date range
-     */
-    public function scopeDateRange($query, $from, $to)
+    public function update($id, $data)
     {
-        return $query->whereBetween('date', [$from, $to]);
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function getNextInstallmentNo($loanId)
+    {
+        $result = $this->db->selectOne(
+            "SELECT MAX(installment_no) as max_no FROM {$this->table} WHERE loan_id = ?",
+            [$loanId]
+        );
+        
+        return ($result['max_no'] ?? 0) + 1;
     }
 }
-
 

@@ -1,284 +1,212 @@
-# HRMS Backend API
+# HRMS Backend - Core PHP
 
-A comprehensive Human Resource Management System (HRMS) backend built with Laravel 9, featuring complete HR, payroll, accounting, and asset management modules.
+This is a core PHP implementation of the HRMS (Human Resource Management System) API, migrated from Laravel.
 
-## 🚀 Features
+## Features
 
-### Core HR Modules
-- **Employee Management** - Complete employee lifecycle management
-- **Department Management** - Organizational structure and hierarchy
-- **Leave Management** - Leave applications, approvals, and tracking
-- **Attendance** - Clock in/out, attendance reports
-- **Payroll** - Salary processing, payslips, tax calculations
-- **Recruitment** - Job postings, applications, candidate tracking
-- **Notices** - Company-wide announcements and notifications
-- **Awards** - Employee recognition and awards management
+- ✅ RESTful API with JSON responses
+- ✅ Token-based authentication (compatible with Laravel Sanctum tokens)
+- ✅ PDO database wrapper with prepared statements
+- ✅ Custom routing with middleware support
+- ✅ Request validation
+- ✅ CORS support
+- ✅ MD5 legacy password support + bcrypt
 
-### Financial Modules
-- **Accounts** - Complete double-entry accounting system
-  - Chart of Accounts (COA)
-  - Vouchers (Debit, Credit, Contra, Journal)
-  - General Ledger, Cash Book, Bank Book
-  - Financial Reports (Trial Balance, P&L, Balance Sheet, Cash Flow)
-- **Expense Management** - Track and categorize expenses
-- **Income Management** - Revenue tracking and reporting
-- **Loan Management** - Employee loans and installment tracking
-- **Tax Management** - Tax brackets, calculations, and collections
-- **Bank Management** - Bank account management
+## Requirements
 
-### Asset Management
-- **Asset Types** - Categorize company assets
-- **Asset Tracking** - Track equipment, vehicles, and other assets
-- **Asset Assignment** - Assign assets to employees
-- **Asset History** - Complete audit trail of asset movements
+- PHP 8.0 or higher
+- MySQL 5.7+ or MariaDB
+- Apache with mod_rewrite enabled
+- PDO MySQL extension
 
-### Additional Features
-- **Template Management** - Dynamic document templates
-- **RESTful API** - Complete REST API with Swagger documentation
-- **Authentication** - Laravel Sanctum token-based authentication
-- **CORS Support** - Configured for frontend integration
+## Installation
 
-## 📋 Requirements
-
-- PHP ^8.0
-- MySQL 5.7+ or MariaDB 10.3+
-- Composer
-- Laravel 9.x
-
-## 🛠️ Local Development Setup
-
-1. **Clone the repository**
-```bash
-git clone <your-repo-url>
-cd new-backend
-```
-
-2. **Install dependencies**
-```bash
-composer install
-```
-
-3. **Configure environment**
+1. **Copy environment file**
 ```bash
 cp .env.example .env
-php artisan key:generate
 ```
 
-4. **Update database configuration in `.env`**
-```env
-DB_CONNECTION=mysql
+2. **Configure database in .env**
+```
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=hrms
 DB_USERNAME=root
-DB_PASSWORD=
+DB_PASSWORD=your_password
 ```
 
-5. **Run migrations**
+3. **Point Apache to public directory**
+   - Document root should be: `backend-php/public/`
+   - Or access via: `http://localhost/backend-php/public/`
+
+4. **Ensure mod_rewrite is enabled**
 ```bash
-php artisan migrate
+# On Ubuntu/Debian
+sudo a2enmod rewrite
+sudo systemctl restart apache2
 ```
 
-6. **Start development server**
-```bash
-php artisan serve
-```
-
-The API will be available at `http://localhost:8000`
-
-## 🌐 Render Deployment
-
-This application is ready for deployment to Render.com. See detailed guides:
-
-- **[Quick Deployment Guide](RENDER_DEPLOYMENT_GUIDE.md)** - Complete step-by-step deployment instructions
-- **[Environment Variables](RENDER_ENV_VARIABLES.md)** - All environment variables explained
-- **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Comprehensive deployment checklist
-
-### Quick Deploy to Render
-
-1. Push code to GitHub/GitLab/Bitbucket
-2. Create a new Web Service on Render
-3. Connect your repository
-4. Configure environment variables (see `RENDER_ENV_VARIABLES.md`)
-5. Deploy!
-
-Render will automatically:
-- Install dependencies
-- Run migrations
-- Build and deploy your application
-
-## 📚 API Documentation
-
-Interactive API documentation is available via Swagger UI:
-
-- **Local**: `http://localhost:8000/api/documentation`
-- **Production**: `https://your-app.onrender.com/api/documentation`
-
-### Health Check
-```bash
-GET /api/health
-```
+## API Endpoints
 
 ### Authentication
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/logout` - Logout (requires auth)
+- `GET /api/v1/auth/me` - Get current user (requires auth)
+
+### Employees
+- `GET /api/v1/employees` - List all employees
+- `GET /api/v1/employees/{id}` - Get employee details
+- `POST /api/v1/employees` - Create employee
+- `PUT /api/v1/employees/{id}` - Update employee
+- `DELETE /api/v1/employees/{id}` - Delete employee
+
+### Departments
+- `GET /api/v1/departments` - List all departments
+- `GET /api/v1/departments/{id}` - Get department details
+- `POST /api/v1/departments` - Create department
+- `PUT /api/v1/departments/{id}` - Update department
+- `DELETE /api/v1/departments/{id}` - Delete department
+
+### Health Check
+- `GET /health` - API health status
+
+## Usage Example
+
+### Login
 ```bash
-POST /api/v1/auth/login
-POST /api/v1/auth/logout
-GET /api/v1/auth/me
+curl -X POST http://localhost/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"password"}'
 ```
 
-All API endpoints are prefixed with `/api/v1/` and require authentication via Sanctum tokens (except login and public job application endpoints).
-
-## 🔐 Authentication
-
-This API uses Laravel Sanctum for token-based authentication.
-
-1. **Login** to get a token:
-```bash
-POST /api/v1/auth/login
-Content-Type: application/json
-
+Response:
+```json
 {
-  "email": "user@example.com",
-  "password": "password"
+  "success": true,
+  "message": "Login successful",
+  "token": "your-access-token",
+  "user": {
+    "id": 1,
+    "name": "Admin User",
+    "email": "admin@example.com"
+  }
 }
 ```
 
-2. **Use the token** in subsequent requests:
+### Get Employees (with authentication)
 ```bash
-Authorization: Bearer YOUR_TOKEN_HERE
+curl -X GET http://localhost/api/v1/employees \
+  -H "Authorization: Bearer your-access-token"
 ```
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
-new-backend/
+backend-php/
 ├── app/
-│   ├── Http/Controllers/Api/V1/  # API Controllers
-│   ├── Models/                    # Eloquent Models
-│   └── ...
-├── config/                        # Configuration files
-├── database/
-│   ├── migrations/                # Database migrations
-│   └── seeders/                   # Database seeders
-├── routes/
-│   └── api.php                    # API routes
-├── storage/                       # File storage
-├── render.yaml                    # Render deployment config
-├── build.sh                       # Build script for Render
-└── Procfile                       # Process file
+│   ├── Controllers/      # API controllers
+│   ├── Models/          # Database models
+│   ├── Middleware/      # Custom middleware
+│   └── Helpers/         # Helper functions
+├── config/              # Configuration files
+├── core/                # Core framework classes
+├── public/              # Web root (index.php)
+├── routes/              # API routes definition
+└── storage/
+    └── logs/            # Application logs
 ```
 
-## 🧪 Testing
+## Core Classes
 
-Run the test suite:
-```bash
-php artisan test
+### Database
+PDO wrapper with query builder methods:
+- `select()` - Execute SELECT query
+- `insert()` - Insert data
+- `update()` - Update data
+- `delete()` - Delete data
+- Transaction support
+
+### Router
+Request routing with middleware:
+- Route registration (GET, POST, PUT, DELETE)
+- Route parameters `{id}`
+- Route grouping with prefix
+- Middleware support
+
+### Auth
+Token-based authentication:
+- Compatible with Laravel Sanctum tokens
+- Token generation and validation
+- User session management
+
+### Request
+HTTP request handling:
+- `all()` - Get all input data
+- `input($key)` - Get specific input
+- `bearerToken()` - Extract Bearer token
+- `user()` - Get authenticated user
+
+### Response
+JSON response formatting:
+- `json()` - Send JSON response
+- `success()` - Success response
+- `error()` - Error response
+- `unauthorized()`, `notFound()`, etc.
+
+### Validator
+Input validation:
+- Rule-based validation
+- Validation rules: required, email, min, max, numeric, integer, date, in
+- Automatic error responses
+
+## Migration Status
+
+### ✅ Completed Modules
+- Core Foundation (Database, Router, Request, Response, Auth)
+- Authentication (Login, Logout, User info)
+- Employee Management (Full CRUD)
+- Department Management (Full CRUD)
+
+### 🔄 In Progress
+- Leave Management
+- Attendance Tracking
+- Payroll System
+
+### ⏳ Pending Modules
+- Recruitment
+- Notices
+- Reports
+- Accounting (COA, Vouchers, Ledgers)
+- Financial Reports
+- Expenses & Income
+- Loans
+- Assets
+- Banks
+- Tax Management
+- Awards
+- Templates
+
+## Development
+
+### Error Logging
+Errors are logged to `storage/logs/php-errors.log`
+
+### Debug Mode
+Set in .env:
+```
+APP_DEBUG=true
 ```
 
-## 📝 Available Modules
+This will show detailed error messages in API responses.
 
-### HR Management
-- Employees, Departments, Positions
-- Leave Management with approval workflow
-- Attendance tracking with clock in/out
-- Payroll generation and processing
-- Recruitment and job applications
-- Company notices and announcements
-- Employee awards and recognition
+## Notes
 
-### Accounting
-- Chart of Accounts (hierarchical)
-- Voucher entry (Debit, Credit, Contra, Journal)
-- General Ledger, Cash Book, Bank Book
-- Trial Balance, P&L Statement, Balance Sheet, Cash Flow
+- This implementation maintains compatibility with the existing Laravel HRMS database
+- Same table structure, column names, and relationships
+- Tokens created by Laravel Sanctum are compatible with this implementation
+- Supports both MD5 legacy passwords and bcrypt passwords for backward compatibility
 
-### Financial Operations
-- Expense tracking with categories
-- Income tracking with categories
-- Employee loan management with installments
-- Tax setup and collection tracking
-- Bank account management
+## License
 
-### Asset Management
-- Asset type categorization
-- Asset registration and tracking
-- Asset assignment to employees
-- Asset return and history tracking
+MIT License
 
-### Templates
-- Dynamic template management
-- Template rendering with variables
-
-## 🔧 Configuration
-
-### CORS Configuration
-Update `config/cors.php` to add your frontend domain:
-```php
-'allowed_origins' => array_filter([
-    'http://localhost:3000',
-    env('FRONTEND_URL'),
-]),
-```
-
-### Sanctum Configuration
-Update `.env` with your frontend domain:
-```env
-SANCTUM_STATEFUL_DOMAINS=yourdomain.com,www.yourdomain.com
-SESSION_DOMAIN=.yourdomain.com
-```
-
-## 🚀 Deployment Files
-
-- `render.yaml` - Infrastructure as code for Render
-- `build.sh` - Automated build script
-- `Procfile` - Process definition
-- `.renderignore` - Files excluded from deployment
-- `RENDER_DEPLOYMENT_GUIDE.md` - Comprehensive deployment guide
-- `RENDER_ENV_VARIABLES.md` - Environment variables reference
-- `DEPLOYMENT_CHECKLIST.md` - Step-by-step deployment checklist
-
-## 📊 Database Schema
-
-The application includes migrations for all modules. Run migrations to create:
-- Users and authentication tables
-- HR management tables (employees, departments, leaves, attendance, payroll)
-- Recruitment tables (jobs, applications)
-- Accounting tables (COA, transactions, vouchers)
-- Financial tables (expenses, incomes, loans, taxes)
-- Asset management tables
-- Bank and award tables
-- Template management tables
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For deployment issues:
-- Check [RENDER_DEPLOYMENT_GUIDE.md](RENDER_DEPLOYMENT_GUIDE.md)
-- Review [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
-- Check Render logs in the dashboard
-
-For application issues:
-- Check `storage/logs/laravel.log`
-- Review API documentation at `/api/documentation`
-
-## 🔗 Links
-
-- [Laravel Documentation](https://laravel.com/docs/9.x)
-- [Render Documentation](https://render.com/docs)
-- [Laravel Sanctum](https://laravel.com/docs/9.x/sanctum)
-- [Swagger/OpenAPI](https://swagger.io/)
-
----
-
-**Built with Laravel 9** | **Ready for Render Deployment** | **Production Ready**

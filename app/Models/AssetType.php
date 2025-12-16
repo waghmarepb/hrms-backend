@@ -1,37 +1,59 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class AssetType extends Model
+class AssetType
 {
-    use HasFactory;
+    private $db;
+    private $table = 'equipment_type';
+    private $primaryKey = 'type_id';
 
-    protected $table = 'equipment_type';
-    protected $primaryKey = 'type_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'type_name',
-    ];
-
-    /**
-     * Get all equipment of this type
-     */
-    public function equipment()
+    public function __construct()
     {
-        return $this->hasMany(Asset::class, 'type_id', 'type_id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get count of equipment for this type
-     */
-    public function getEquipmentCountAttribute()
+    public function getAll()
     {
-        return $this->equipment()->count();
+        $sql = "SELECT 
+                    t.*,
+                    COUNT(e.equipment_id) as equipment_count
+                FROM {$this->table} t
+                LEFT JOIN equipment e ON t.type_id = e.type_id
+                GROUP BY t.type_id
+                ORDER BY t.type_name ASC";
+        
+        return $this->db->select($sql);
+    }
+
+    public function findById($id)
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
+
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 }
-
 

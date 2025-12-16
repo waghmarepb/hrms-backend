@@ -1,40 +1,10 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Loan extends Model
+class Loan
 {
-    use HasFactory;
-
-    protected $table = 'grand_loan';
-    protected $primaryKey = 'loan_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'employee_id',
-        'permission_by',
-        'loan_details',
-        'amount',
-        'interest_rate',
-        'installment',
-        'installment_period',
-        'repayment_amount',
-        'date_of_approve',
-        'loan_status',
-        'repayment_start_date',
-    ];
-
-    protected $casts = [
-        'amount' => 'decimal:2',
-        'interest_rate' => 'decimal:2',
-        'installment' => 'integer',
-        'repayment_amount' => 'decimal:2',
-        'date_of_approve' => 'date',
-        'repayment_start_date' => 'date',
-    ];
+    private $db;
+    private $table = 'grand_loan';
+    private $primaryKey = 'loan_id';
 
     // Loan Status Constants
     const STATUS_PENDING = 0;
@@ -42,77 +12,124 @@ class Loan extends Model
     const STATUS_REJECTED = 2;
     const STATUS_COMPLETED = 3;
 
-    /**
-     * Get the employee who took the loan
-     */
-    public function employee()
+    public function __construct()
     {
-        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get the supervisor who approved the loan
-     */
-    public function supervisor()
+    public function getAll($filters = [])
     {
-        return $this->belongsTo(Employee::class, 'permission_by', 'employee_id');
+        $sql = "SELECT 
+                    l.*,
+                    CONCAT(e.first_name, ' ', IFNULL(e.middle_name, ''), ' ', e.last_name) as employee_name,
+                    CONCAT(s.first_name, ' ', IFNULL(s.middle_name, ''), ' ', s.last_name) as supervisor_name
+                FROM {$this->table} l
+                LEFT JOIN employee_history e ON l.employee_id = e.employee_id
+                LEFT JOIN employee_history s ON l.permission_by = s.employee_id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['employee_id'])) {
+            $sql .= " AND l.employee_id = ?";
+            $params[] = $filters['employee_id'];
+        }
+        
+        if (isset($filters['status'])) {
+            $sql .= " AND l.loan_status = ?";
+            $params[] = $filters['status'];
+        }
+        
+        $sql .= " ORDER BY l.loan_id DESC";
+        
+        return $this->db->select($sql, $params);
     }
 
-    /**
-     * Get all installments for this loan
-     */
-    public function installments()
+    public function findById($id)
     {
-        return $this->hasMany(LoanInstallment::class, 'loan_id', 'loan_id');
+        $sql = "SELECT 
+                    l.*,
+                    CONCAT(e.first_name, ' ', IFNULL(e.middle_name, ''), ' ', e.last_name) as employee_name,
+                    CONCAT(s.first_name, ' ', IFNULL(s.middle_name, ''), ' ', s.last_name) as supervisor_name
+                FROM {$this->table} l
+                LEFT JOIN employee_history e ON l.employee_id = e.employee_id
+                LEFT JOIN employee_history s ON l.permission_by = s.employee_id
+                WHERE l.{$this->primaryKey} = ?
+                LIMIT 1";
+        
+        return $this->db->selectOne($sql, [$id]);
     }
 
-    /**
-     * Get paid installments
-     */
-    public function paidInstallments()
+    public function create($data)
     {
-        return $this->hasMany(LoanInstallment::class, 'loan_id', 'loan_id');
+        return $this->db->insert($this->table, $data);
     }
 
-    /**
-     * Scope for approved loans
-     */
-    public function scopeApproved($query)
+    public function update($id, $data)
     {
-        return $query->where('loan_status', self::STATUS_APPROVED);
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 
-    /**
-     * Scope for pending loans
-     */
-    public function scopePending($query)
+    public function delete($id)
     {
-        return $query->where('loan_status', self::STATUS_PENDING);
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 
-    /**
-     * Scope for specific employee
-     */
-    public function scopeForEmployee($query, $employeeId)
+    public function approve($id, $supervisorId)
     {
-        return $query->where('employee_id', $employeeId);
+        return $this->update($id, [
+            'loan_status' => self::STATUS_APPROVED,
+            'permission_by' => $supervisorId,
+            'date_of_approve' => today()
+        ]);
     }
 
-    /**
-     * Get total paid amount
-     */
-    public function getTotalPaidAttribute()
+    public function reject($id)
     {
-        return $this->installments()->sum('installment_amount');
+        return $this->update($id, [
+            'loan_status' => self::STATUS_REJECTED
+        ]);
     }
 
-    /**
-     * Get remaining balance
-     */
-    public function getRemainingBalanceAttribute()
+    public function getTotalPaid($loanId)
     {
-        return $this->repayment_amount - $this->total_paid;
+        $result = $this->db->selectOne(
+            "SELECT SUM(payment) as total FROM loan_installment WHERE loan_id = ?",
+            [$loanId]
+        );
+        return $result['total'] ?? 0;
+    }
+
+    public function getRemainingBalance($loanId)
+    {
+        $loan = $this->findById($loanId);
+        if (!$loan) return 0;
+        
+        $totalPaid = $this->getTotalPaid($loanId);
+        return $loan['repayment_amount'] - $totalPaid;
+    }
+
+    public function getSummary()
+    {
+        $sql = "SELECT 
+                    COUNT(*) as total_loans,
+                    SUM(CASE WHEN loan_status = " . self::STATUS_PENDING . " THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN loan_status = " . self::STATUS_APPROVED . " THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN loan_status = " . self::STATUS_COMPLETED . " THEN 1 ELSE 0 END) as completed,
+                    SUM(amount) as total_amount,
+                    SUM(repayment_amount) as total_repayment
+                FROM {$this->table}";
+        
+        return $this->db->selectOne($sql);
     }
 }
-
 

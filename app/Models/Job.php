@@ -1,44 +1,73 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Job extends Model
+class Job
 {
-    use HasFactory;
+    private $db;
+    private $table = 'recruitment';
+    private $primaryKey = 'recruitment_id';
 
-    protected $table = 'recruitment';
-    protected $primaryKey = 'recruitment_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'position',
-        'description',
-        'requirements',
-        'location',
-        'salary_range',
-        'employment_type',
-        'status',
-        'posted_date',
-        'closing_date',
-        'posted_by',
-    ];
-
-    protected $casts = [
-        'posted_date' => 'date',
-        'closing_date' => 'date',
-    ];
-
-    /**
-     * Get applications for this job
-     */
-    public function applications()
+    public function __construct()
     {
-        return $this->hasMany(JobApplication::class, 'recruitment_id', 'recruitment_id');
+        $this->db = Database::getInstance();
+    }
+
+    public function getAll($filters = [])
+    {
+        $sql = "SELECT 
+                    r.*,
+                    COUNT(ja.job_application_id) as applications_count
+                FROM {$this->table} r
+                LEFT JOIN job_application ja ON r.recruitment_id = ja.recruitment_id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['status'])) {
+            $sql .= " AND r.status = ?";
+            $params[] = $filters['status'];
+        }
+        
+        $sql .= " GROUP BY r.recruitment_id ORDER BY r.posted_date DESC";
+        
+        return $this->db->select($sql, $params);
+    }
+
+    public function findById($id)
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
+
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function getApplications($jobId)
+    {
+        $sql = "SELECT * FROM job_application WHERE recruitment_id = ? ORDER BY applied_date DESC";
+        return $this->db->select($sql, [$jobId]);
     }
 }
-
-
 

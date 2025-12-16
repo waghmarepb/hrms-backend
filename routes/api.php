@@ -1,241 +1,237 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\Auth\AuthController;
-use App\Http\Controllers\Api\V1\EmployeeController;
-use App\Http\Controllers\Api\V1\DepartmentController;
-use App\Http\Controllers\Api\V1\LeaveController;
-use App\Http\Controllers\Api\V1\AttendanceController;
-use App\Http\Controllers\Api\V1\PayrollController;
-use App\Http\Controllers\Api\V1\RecruitmentController;
-use App\Http\Controllers\Api\V1\NoticeController;
-use App\Http\Controllers\Api\V1\ReportController;
-use App\Http\Controllers\Api\V1\ChartOfAccountController;
-use App\Http\Controllers\Api\V1\VoucherController;
-use App\Http\Controllers\Api\V1\LedgerController;
-use App\Http\Controllers\Api\V1\FinancialReportController;
-use App\Http\Controllers\Api\V1\ExpenseController;
-use App\Http\Controllers\Api\V1\IncomeController;
-use App\Http\Controllers\Api\V1\LoanController;
-use App\Http\Controllers\Api\V1\AssetController;
-use App\Http\Controllers\Api\V1\BankController;
-use App\Http\Controllers\Api\V1\TaxController;
-use App\Http\Controllers\Api\V1\AwardController;
-use App\Http\Controllers\Api\V1\TemplateController;
+// Health check
+$router->get('/health', function() {
+    Response::json([
+        'success' => true,
+        'message' => 'API is running',
+        'version' => '1.0.0 (Core PHP)'
+    ]);
+});
 
-Route::prefix('v1')->group(function () {
-    // Public routes
-    Route::post('/auth/login', [AuthController::class, 'login']);
+// API v1 routes
+$router->prefix('/api/v1')->group(function($router) {
     
-    // Protected routes
-    Route::middleware('auth:sanctum')->group(function () {
-        // Auth
-        Route::post('/auth/logout', [AuthController::class, 'logout']);
-        Route::get('/auth/me', [AuthController::class, 'me']);
+    // Public routes - Authentication
+    $router->post('/auth/login', [AuthController::class, 'login']);
+    
+    // Public recruitment endpoint (job seekers don't need auth)
+    $router->post('/jobs/{id}/apply', [RecruitmentController::class, 'apply']);
+    
+    // Protected routes - require authentication
+    $router->middleware(['AuthMiddleware'])->group(function($router) {
         
-        // Employees
-        Route::apiResource('employees', EmployeeController::class);
+        // Auth endpoints
+        $router->post('/auth/logout', [AuthController::class, 'logout']);
+        $router->get('/auth/me', [AuthController::class, 'me']);
         
-        // Departments
-        Route::apiResource('departments', DepartmentController::class);
+        // Employee Management ✅ MIGRATED
+        $router->get('/employees', [EmployeeController::class, 'index']);
+        $router->get('/employees/{id}', [EmployeeController::class, 'show']);
+        $router->post('/employees', [EmployeeController::class, 'store']);
+        $router->put('/employees/{id}', [EmployeeController::class, 'update']);
+        $router->delete('/employees/{id}', [EmployeeController::class, 'destroy']);
         
-        // Leave Management
-        Route::apiResource('leaves', LeaveController::class);
-        Route::put('/leaves/{id}/approve', [LeaveController::class, 'approve']);
-        Route::put('/leaves/{id}/reject', [LeaveController::class, 'reject']);
+        // Department Management ✅ MIGRATED
+        $router->get('/departments', [DepartmentController::class, 'index']);
+        $router->get('/departments/{id}', [DepartmentController::class, 'show']);
+        $router->post('/departments', [DepartmentController::class, 'store']);
+        $router->put('/departments/{id}', [DepartmentController::class, 'update']);
+        $router->delete('/departments/{id}', [DepartmentController::class, 'destroy']);
         
-        // Attendance
-        Route::get('/attendance', [AttendanceController::class, 'index']);
-        Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn']);
-        Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut']);
-        Route::get('/attendance/report', [AttendanceController::class, 'report']);
+        // Leave Management ✅ MIGRATED
+        $router->get('/leaves', [LeaveController::class, 'index']);
+        $router->get('/leaves/{id}', [LeaveController::class, 'show']);
+        $router->post('/leaves', [LeaveController::class, 'store']);
+        $router->put('/leaves/{id}', [LeaveController::class, 'update']);
+        $router->delete('/leaves/{id}', [LeaveController::class, 'destroy']);
+        $router->put('/leaves/{id}/approve', [LeaveController::class, 'approve']);
+        $router->put('/leaves/{id}/reject', [LeaveController::class, 'reject']);
         
-        // Payroll
-        Route::get('/payroll', [PayrollController::class, 'index']);
-        Route::get('/payroll/{id}', [PayrollController::class, 'show']);
-        Route::post('/payroll/generate', [PayrollController::class, 'generate']);
-        Route::put('/payroll/{id}/pay', [PayrollController::class, 'markAsPaid']);
+        // Attendance Management ✅ MIGRATED
+        $router->get('/attendance', [AttendanceController::class, 'index']);
+        $router->post('/attendance/clock-in', [AttendanceController::class, 'clockIn']);
+        $router->post('/attendance/clock-out', [AttendanceController::class, 'clockOut']);
+        $router->get('/attendance/report', [AttendanceController::class, 'report']);
         
-        // Recruitment
-        Route::get('/jobs', [RecruitmentController::class, 'jobs']);
-        Route::post('/jobs', [RecruitmentController::class, 'createJob']);
-        Route::get('/jobs/{id}/applications', [RecruitmentController::class, 'jobApplications']);
-        Route::put('/applications/{id}/status', [RecruitmentController::class, 'updateApplicationStatus']);
+        // Payroll Management ✅ MIGRATED
+        $router->get('/payroll', [PayrollController::class, 'index']);
+        $router->get('/payroll/{id}', [PayrollController::class, 'show']);
+        $router->post('/payroll/generate', [PayrollController::class, 'generate']);
+        $router->put('/payroll/{id}/pay', [PayrollController::class, 'markAsPaid']);
         
-        // Notices
-        Route::get('/notices', [NoticeController::class, 'index']);
-        Route::post('/notices', [NoticeController::class, 'store']);
-        Route::delete('/notices/{id}', [NoticeController::class, 'destroy']);
+        // Notice Management ✅ MIGRATED
+        $router->get('/notices', [NoticeController::class, 'index']);
+        $router->post('/notices', [NoticeController::class, 'store']);
+        $router->delete('/notices/{id}', [NoticeController::class, 'destroy']);
         
-        // Reports
-        Route::get('/reports/dashboard', [ReportController::class, 'dashboard']);
-        Route::get('/reports/employees', [ReportController::class, 'employeeReport']);
-        Route::get('/reports/attendance', [ReportController::class, 'attendanceReport']);
-        Route::get('/reports/leave', [ReportController::class, 'leaveReport']);
-        Route::get('/reports/payroll', [ReportController::class, 'payrollReport']);
+        // Recruitment ✅ MIGRATED
+        $router->get('/jobs', [RecruitmentController::class, 'jobs']);
+        $router->post('/jobs', [RecruitmentController::class, 'createJob']);
+        $router->get('/jobs/{id}/applications', [RecruitmentController::class, 'jobApplications']);
+        $router->put('/applications/{id}/status', [RecruitmentController::class, 'updateApplicationStatus']);
         
-        // ========== ACCOUNTS MODULE ==========
+        // Reports ✅ MIGRATED
+        $router->get('/reports/dashboard', [ReportController::class, 'dashboard']);
+        $router->get('/reports/employees', [ReportController::class, 'employeeReport']);
+        $router->get('/reports/attendance', [ReportController::class, 'attendanceReport']);
+        $router->get('/reports/leave', [ReportController::class, 'leaveReport']);
+        $router->get('/reports/payroll', [ReportController::class, 'payrollReport']);
         
-        // Chart of Accounts (COA)
-        Route::get('/chart-of-accounts', [ChartOfAccountController::class, 'index']);
-        Route::get('/chart-of-accounts/tree', [ChartOfAccountController::class, 'tree']);
-        Route::get('/chart-of-accounts/transaction-accounts', [ChartOfAccountController::class, 'transactionAccounts']);
-        Route::get('/chart-of-accounts/by-type/{type}', [ChartOfAccountController::class, 'byType']);
-        Route::get('/chart-of-accounts/{headCode}', [ChartOfAccountController::class, 'show']);
-        Route::post('/chart-of-accounts', [ChartOfAccountController::class, 'store']);
-        Route::put('/chart-of-accounts/{headCode}', [ChartOfAccountController::class, 'update']);
-        Route::delete('/chart-of-accounts/{headCode}', [ChartOfAccountController::class, 'destroy']);
-        
-        // Vouchers (Debit, Credit, Contra, Journal)
-        Route::get('/vouchers', [VoucherController::class, 'index']);
-        Route::get('/vouchers/{voucherNo}', [VoucherController::class, 'show']);
-        Route::post('/vouchers/debit', [VoucherController::class, 'createDebitVoucher']);
-        Route::post('/vouchers/credit', [VoucherController::class, 'createCreditVoucher']);
-        Route::post('/vouchers/contra', [VoucherController::class, 'createContraVoucher']);
-        Route::post('/vouchers/journal', [VoucherController::class, 'createJournalVoucher']);
-        Route::put('/vouchers/{voucherNo}/approve', [VoucherController::class, 'approve']);
-        Route::delete('/vouchers/{voucherNo}', [VoucherController::class, 'destroy']);
-        
-        // Ledgers (General Ledger, Cash Book, Bank Book)
-        Route::get('/ledgers/general', [LedgerController::class, 'generalLedger']);
-        Route::get('/ledgers/cash-book', [LedgerController::class, 'cashBook']);
-        Route::get('/ledgers/bank-book', [LedgerController::class, 'bankBook']);
-        Route::get('/ledgers/account-balance/{accountCode}', [LedgerController::class, 'accountBalance']);
-        
-        // Financial Reports (Trial Balance, P&L, Cash Flow, Balance Sheet)
-        Route::get('/financial-reports/trial-balance', [FinancialReportController::class, 'trialBalance']);
-        Route::get('/financial-reports/profit-loss', [FinancialReportController::class, 'profitLoss']);
-        Route::get('/financial-reports/balance-sheet', [FinancialReportController::class, 'balanceSheet']);
-        Route::get('/financial-reports/cash-flow', [FinancialReportController::class, 'cashFlow']);
-        
-        // ========== EXPENSE MODULE ==========
+        // ========== EXPENSE MODULE ========== ✅ MIGRATED
         
         // Expense Categories
-        Route::get('/expense-categories', [ExpenseController::class, 'categories']);
-        Route::post('/expense-categories', [ExpenseController::class, 'createCategory']);
-        Route::get('/expense-categories/{id}', [ExpenseController::class, 'showCategory']);
-        Route::put('/expense-categories/{id}', [ExpenseController::class, 'updateCategory']);
-        Route::delete('/expense-categories/{id}', [ExpenseController::class, 'deleteCategory']);
+        $router->get('/expense-categories', [ExpenseController::class, 'categories']);
+        $router->post('/expense-categories', [ExpenseController::class, 'createCategory']);
+        $router->get('/expense-categories/{id}', [ExpenseController::class, 'showCategory']);
+        $router->put('/expense-categories/{id}', [ExpenseController::class, 'updateCategory']);
+        $router->delete('/expense-categories/{id}', [ExpenseController::class, 'deleteCategory']);
         
         // Expense Entries
-        Route::get('/expenses', [ExpenseController::class, 'index']);
-        Route::post('/expenses', [ExpenseController::class, 'store']);
-        Route::get('/expenses/statement', [ExpenseController::class, 'statement']);
-        Route::get('/expenses/summary', [ExpenseController::class, 'summary']);
+        $router->get('/expenses', [ExpenseController::class, 'index']);
+        $router->post('/expenses', [ExpenseController::class, 'store']);
+        $router->get('/expenses/statement', [ExpenseController::class, 'statement']);
+        $router->get('/expenses/summary', [ExpenseController::class, 'summary']);
         
-        // ========== INCOME MODULE ==========
+        // ========== INCOME MODULE ========== ✅ MIGRATED
         
         // Income Categories
-        Route::get('/income-categories', [IncomeController::class, 'categories']);
-        Route::post('/income-categories', [IncomeController::class, 'createCategory']);
-        Route::get('/income-categories/{id}', [IncomeController::class, 'showCategory']);
-        Route::put('/income-categories/{id}', [IncomeController::class, 'updateCategory']);
-        Route::delete('/income-categories/{id}', [IncomeController::class, 'deleteCategory']);
+        $router->get('/income-categories', [IncomeController::class, 'categories']);
+        $router->post('/income-categories', [IncomeController::class, 'createCategory']);
+        $router->get('/income-categories/{id}', [IncomeController::class, 'showCategory']);
+        $router->put('/income-categories/{id}', [IncomeController::class, 'updateCategory']);
+        $router->delete('/income-categories/{id}', [IncomeController::class, 'deleteCategory']);
         
         // Income Entries
-        Route::get('/incomes', [IncomeController::class, 'index']);
-        Route::post('/incomes', [IncomeController::class, 'store']);
-        Route::get('/incomes/statement', [IncomeController::class, 'statement']);
-        Route::get('/incomes/summary', [IncomeController::class, 'summary']);
+        $router->get('/incomes', [IncomeController::class, 'index']);
+        $router->post('/incomes', [IncomeController::class, 'store']);
+        $router->get('/incomes/statement', [IncomeController::class, 'statement']);
+        $router->get('/incomes/summary', [IncomeController::class, 'summary']);
         
-        // ========== LOAN MODULE ==========
+        // ========== LOAN MODULE ========== ✅ MIGRATED
         
         // Loan Management
-        Route::get('/loans', [LoanController::class, 'index']);
-        Route::get('/loans/reports/summary', [LoanController::class, 'summary']);
-        Route::post('/loans', [LoanController::class, 'store']);
-        Route::get('/loans/{id}', [LoanController::class, 'show']);
-        Route::put('/loans/{id}', [LoanController::class, 'update']);
-        Route::delete('/loans/{id}', [LoanController::class, 'destroy']);
-        Route::put('/loans/{id}/approve', [LoanController::class, 'approve']);
-        Route::put('/loans/{id}/reject', [LoanController::class, 'reject']);
+        $router->get('/loans', [LoanController::class, 'index']);
+        $router->get('/loans/reports/summary', [LoanController::class, 'summary']);
+        $router->post('/loans', [LoanController::class, 'store']);
+        $router->get('/loans/{id}', [LoanController::class, 'show']);
+        $router->put('/loans/{id}', [LoanController::class, 'update']);
+        $router->delete('/loans/{id}', [LoanController::class, 'destroy']);
+        $router->put('/loans/{id}/approve', [LoanController::class, 'approve']);
+        $router->put('/loans/{id}/reject', [LoanController::class, 'reject']);
         
         // Loan Installments
-        Route::get('/loans/{id}/installments', [LoanController::class, 'installments']);
-        Route::post('/loans/{id}/installments', [LoanController::class, 'recordInstallment']);
+        $router->get('/loans/{id}/installments', [LoanController::class, 'installments']);
+        $router->post('/loans/{id}/installments', [LoanController::class, 'recordInstallment']);
         
-        // ========== ASSET MANAGEMENT MODULE ==========
+        // ========== ASSET MANAGEMENT MODULE ========== ✅ MIGRATED
         
         // Asset Types
-        Route::get('/asset-types', [AssetController::class, 'types']);
-        Route::post('/asset-types', [AssetController::class, 'createType']);
-        Route::get('/asset-types/{id}', [AssetController::class, 'showType']);
-        Route::put('/asset-types/{id}', [AssetController::class, 'updateType']);
-        Route::delete('/asset-types/{id}', [AssetController::class, 'deleteType']);
+        $router->get('/asset-types', [AssetController::class, 'types']);
+        $router->post('/asset-types', [AssetController::class, 'createType']);
+        $router->get('/asset-types/{id}', [AssetController::class, 'showType']);
+        $router->put('/asset-types/{id}', [AssetController::class, 'updateType']);
+        $router->delete('/asset-types/{id}', [AssetController::class, 'deleteType']);
         
         // Assets/Equipment
-        Route::get('/assets', [AssetController::class, 'index']);
-        Route::get('/assets/available', [AssetController::class, 'available']);
-        Route::post('/assets', [AssetController::class, 'store']);
-        Route::get('/assets/{id}', [AssetController::class, 'show']);
-        Route::put('/assets/{id}', [AssetController::class, 'update']);
-        Route::delete('/assets/{id}', [AssetController::class, 'destroy']);
+        $router->get('/assets', [AssetController::class, 'index']);
+        $router->get('/assets/available', [AssetController::class, 'available']);
+        $router->post('/assets', [AssetController::class, 'store']);
+        $router->get('/assets/{id}', [AssetController::class, 'show']);
+        $router->put('/assets/{id}', [AssetController::class, 'update']);
+        $router->delete('/assets/{id}', [AssetController::class, 'destroy']);
         
         // Asset Assignments
-        Route::get('/asset-assignments', [AssetController::class, 'assignments']);
-        Route::post('/asset-assignments', [AssetController::class, 'assignAsset']);
-        Route::put('/asset-assignments/return', [AssetController::class, 'returnAsset']);
-        Route::get('/asset-assignments/employee/{employeeId}', [AssetController::class, 'employeeAssets']);
-        Route::get('/asset-assignments/history/{employeeId}', [AssetController::class, 'employeeAssetHistory']);
+        $router->get('/asset-assignments', [AssetController::class, 'assignments']);
+        $router->post('/asset-assignments', [AssetController::class, 'assignAsset']);
+        $router->put('/asset-assignments/return', [AssetController::class, 'returnAsset']);
+        $router->get('/asset-assignments/employee/{employeeId}', [AssetController::class, 'employeeAssets']);
+        $router->get('/asset-assignments/history/{employeeId}', [AssetController::class, 'employeeAssetHistory']);
         
-        // ========== BANK MANAGEMENT MODULE ==========
+        // ========== BANK MANAGEMENT MODULE ========== ✅ MIGRATED
         
         // Banks
-        Route::get('/banks', [BankController::class, 'index']);
-        Route::post('/banks', [BankController::class, 'store']);
-        Route::get('/banks/{id}', [BankController::class, 'show']);
-        Route::put('/banks/{id}', [BankController::class, 'update']);
-        Route::delete('/banks/{id}', [BankController::class, 'destroy']);
+        $router->get('/banks', [BankController::class, 'index']);
+        $router->post('/banks', [BankController::class, 'store']);
+        $router->get('/banks/{id}', [BankController::class, 'show']);
+        $router->put('/banks/{id}', [BankController::class, 'update']);
+        $router->delete('/banks/{id}', [BankController::class, 'destroy']);
         
-        // ========== TAX MODULE ==========
+        // ========== TAX MODULE ========== ✅ MIGRATED
         
         // Tax Setup (Brackets/Slabs)
-        Route::get('/tax-setup', [TaxController::class, 'index']);
-        Route::post('/tax-setup', [TaxController::class, 'store']);
-        Route::get('/tax-setup/{id}', [TaxController::class, 'show']);
-        Route::put('/tax-setup/{id}', [TaxController::class, 'update']);
-        Route::delete('/tax-setup/{id}', [TaxController::class, 'destroy']);
-        Route::post('/tax-setup/calculate', [TaxController::class, 'calculate']);
+        $router->get('/tax-setup', [TaxController::class, 'index']);
+        $router->post('/tax-setup', [TaxController::class, 'store']);
+        $router->get('/tax-setup/{id}', [TaxController::class, 'show']);
+        $router->put('/tax-setup/{id}', [TaxController::class, 'update']);
+        $router->delete('/tax-setup/{id}', [TaxController::class, 'destroy']);
+        $router->post('/tax-setup/calculate', [TaxController::class, 'calculate']);
         
         // Tax Collections
-        Route::get('/tax-collections', [TaxController::class, 'collections']);
-        Route::delete('/tax-collections/{id}', [TaxController::class, 'deleteCollection']);
-        Route::get('/tax-collections/summary', [TaxController::class, 'summary']);
+        $router->get('/tax-collections', [TaxController::class, 'collections']);
+        $router->delete('/tax-collections/{id}', [TaxController::class, 'deleteCollection']);
+        $router->get('/tax-collections/summary', [TaxController::class, 'summary']);
         
-        // ========== AWARD MODULE ==========
+        // ========== AWARD MODULE ========== ✅ MIGRATED
         
         // Awards
-        Route::get('/awards', [AwardController::class, 'index']);
-        Route::post('/awards', [AwardController::class, 'store']);
-        Route::get('/awards/employee/{employeeId}', [AwardController::class, 'employeeAwards']);
-        Route::get('/awards/{id}', [AwardController::class, 'show']);
-        Route::put('/awards/{id}', [AwardController::class, 'update']);
-        Route::delete('/awards/{id}', [AwardController::class, 'destroy']);
+        $router->get('/awards', [AwardController::class, 'index']);
+        $router->post('/awards', [AwardController::class, 'store']);
+        $router->get('/awards/employee/{employeeId}', [AwardController::class, 'employeeAwards']);
+        $router->get('/awards/{id}', [AwardController::class, 'show']);
+        $router->put('/awards/{id}', [AwardController::class, 'update']);
+        $router->delete('/awards/{id}', [AwardController::class, 'destroy']);
         
-        // ========== TEMPLATE MODULE ==========
+        // ========== TEMPLATE MODULE ========== ✅ MIGRATED
         
         // Templates
-        Route::get('/templates', [TemplateController::class, 'index']);
-        Route::get('/templates/active', [TemplateController::class, 'active']);
-        Route::post('/templates', [TemplateController::class, 'store']);
-        Route::get('/templates/{id}', [TemplateController::class, 'show']);
-        Route::put('/templates/{id}', [TemplateController::class, 'update']);
-        Route::delete('/templates/{id}', [TemplateController::class, 'destroy']);
-        Route::post('/templates/{id}/render', [TemplateController::class, 'render']);
+        $router->get('/templates', [TemplateController::class, 'index']);
+        $router->get('/templates/active', [TemplateController::class, 'active']);
+        $router->post('/templates', [TemplateController::class, 'store']);
+        $router->get('/templates/{id}', [TemplateController::class, 'show']);
+        $router->put('/templates/{id}', [TemplateController::class, 'update']);
+        $router->delete('/templates/{id}', [TemplateController::class, 'destroy']);
+        $router->post('/templates/{id}/render', [TemplateController::class, 'render']);
+        
+        // ========== CHART OF ACCOUNTS MODULE ========== ✅ MIGRATED
+        
+        // Chart of Accounts
+        $router->get('/chart-of-accounts', [ChartOfAccountController::class, 'index']);
+        $router->get('/chart-of-accounts/tree', [ChartOfAccountController::class, 'tree']);
+        $router->get('/chart-of-accounts/transaction-accounts', [ChartOfAccountController::class, 'transactionAccounts']);
+        $router->get('/chart-of-accounts/by-type/{type}', [ChartOfAccountController::class, 'byType']);
+        $router->post('/chart-of-accounts', [ChartOfAccountController::class, 'store']);
+        $router->get('/chart-of-accounts/{headCode}', [ChartOfAccountController::class, 'show']);
+        $router->put('/chart-of-accounts/{headCode}', [ChartOfAccountController::class, 'update']);
+        $router->delete('/chart-of-accounts/{headCode}', [ChartOfAccountController::class, 'destroy']);
+        
+        // ========== VOUCHER MODULE ========== ✅ MIGRATED
+        
+        // Vouchers
+        $router->get('/vouchers', [VoucherController::class, 'index']);
+        $router->get('/vouchers/{voucherNo}', [VoucherController::class, 'show']);
+        $router->post('/vouchers/debit', [VoucherController::class, 'createDebitVoucher']);
+        $router->post('/vouchers/credit', [VoucherController::class, 'createCreditVoucher']);
+        $router->post('/vouchers/contra', [VoucherController::class, 'createContraVoucher']);
+        $router->post('/vouchers/journal', [VoucherController::class, 'createJournalVoucher']);
+        $router->put('/vouchers/{voucherNo}/approve', [VoucherController::class, 'approve']);
+        $router->delete('/vouchers/{voucherNo}', [VoucherController::class, 'destroy']);
+        
+        // ========== LEDGER MODULE ========== ✅ MIGRATED
+        
+        // Ledgers
+        $router->get('/ledgers/general', [LedgerController::class, 'generalLedger']);
+        $router->get('/ledgers/cash-book', [LedgerController::class, 'cashBook']);
+        $router->get('/ledgers/bank-book', [LedgerController::class, 'bankBook']);
+        $router->get('/ledgers/account-balance/{accountCode}', [LedgerController::class, 'accountBalance']);
+        
+        // ========== FINANCIAL REPORTS MODULE ========== ✅ MIGRATED
+        
+        // Financial Reports
+        $router->get('/financial-reports/trial-balance', [FinancialReportController::class, 'trialBalance']);
+        $router->get('/financial-reports/profit-loss', [FinancialReportController::class, 'profitLoss']);
+        $router->get('/financial-reports/balance-sheet', [FinancialReportController::class, 'balanceSheet']);
+        $router->get('/financial-reports/cash-flow', [FinancialReportController::class, 'cashFlow']);
     });
 });
 
-// Public recruitment endpoints (job seekers don't need auth)
-Route::prefix('v1')->group(function () {
-    Route::post('/jobs/{id}/apply', [RecruitmentController::class, 'apply']);
-});
-
-// Health check
-Route::get('/health', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'API is running',
-        'version' => '1.0.0',
-    ]);
-});

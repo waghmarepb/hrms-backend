@@ -1,34 +1,51 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Bank extends Model
+class Bank
 {
-    use HasFactory;
+    private $db;
+    private $table = 'bank_add';
+    private $primaryKey = 'bank_id';
 
-    protected $table = 'bank_information';
-    protected $primaryKey = 'id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'bank_name',
-        'account_name',
-        'account_number',
-        'branch_name',
-    ];
-
-    /**
-     * Search banks by name or account number
-     */
-    public function scopeSearch($query, $term)
+    public function __construct()
     {
-        return $query->where('bank_name', 'LIKE', "%{$term}%")
-            ->orWhere('account_number', 'LIKE', "%{$term}%")
-            ->orWhere('branch_name', 'LIKE', "%{$term}%");
+        $this->db = Database::getInstance();
+    }
+
+    public function getAll()
+    {
+        return $this->db->select("SELECT * FROM {$this->table} ORDER BY bank_name ASC");
+    }
+
+    public function findById($id)
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
+
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 }
-
 

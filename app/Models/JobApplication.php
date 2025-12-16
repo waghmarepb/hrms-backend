@@ -1,44 +1,66 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class JobApplication extends Model
+class JobApplication
 {
-    use HasFactory;
+    private $db;
+    private $table = 'job_application';
+    private $primaryKey = 'job_application_id';
 
-    protected $table = 'job_application';
-    protected $primaryKey = 'application_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'recruitment_id',
-        'applicant_name',
-        'email',
-        'phone',
-        'resume',
-        'cover_letter',
-        'application_date',
-        'status',
-        'interview_date',
-        'remarks',
-    ];
-
-    protected $casts = [
-        'application_date' => 'date',
-        'interview_date' => 'datetime',
-    ];
-
-    /**
-     * Get the job posting
-     */
-    public function job()
+    public function __construct()
     {
-        return $this->belongsTo(Job::class, 'recruitment_id', 'recruitment_id');
+        $this->db = Database::getInstance();
+    }
+
+    public function getAll($filters = [])
+    {
+        $sql = "SELECT * FROM {$this->table} WHERE 1=1";
+        $params = [];
+        
+        if (isset($filters['recruitment_id'])) {
+            $sql .= " AND recruitment_id = ?";
+            $params[] = $filters['recruitment_id'];
+        }
+        
+        if (isset($filters['status'])) {
+            $sql .= " AND status = ?";
+            $params[] = $filters['status'];
+        }
+        
+        $sql .= " ORDER BY applied_date DESC";
+        
+        return $this->db->select($sql, $params);
+    }
+
+    public function findById($id)
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
+
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 }
-
-
 

@@ -1,91 +1,77 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Support\Facades\Hash;
-
-class User extends Authenticatable
+class User
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    private $db;
+    private $table = 'user';
 
-    // Use existing table name
-    protected $table = 'user';
-    
-    // Primary key
-    protected $primaryKey = 'id';
-    
-    // No timestamps in old table
-    public $timestamps = false;
-
-    /**
-     * The attributes that are mass assignable.
-     */
-    protected $fillable = [
-        'firstname',
-        'lastname',
-        'email',
-        'password',
-        'image',
-        'status',
-        'is_admin',
-        'last_login',
-        'last_logout',
-        'ip_address',
-    ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     */
-    protected $hidden = [
-        'password',
-    ];
-
-    /**
-     * The attributes that should be cast.
-     */
-    protected $casts = [
-        'last_login' => 'datetime',
-        'last_logout' => 'datetime',
-        'status' => 'integer',
-        'is_admin' => 'integer',
-    ];
-
-    /**
-     * Get full name attribute
-     */
-    public function getFullnameAttribute()
+    public function __construct()
     {
-        return trim($this->firstname . ' ' . $this->lastname);
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Check if user is admin
-     */
-    public function isAdmin()
+    public function findByEmail($email)
     {
-        return $this->is_admin == 1;
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE email = ? LIMIT 1",
+            [$email]
+        );
     }
 
-    /**
-     * Check MD5 password (without upgrade due to column size limit)
-     */
-    public function checkAndUpgradePassword($password)
+    public function findById($id)
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE id = ? LIMIT 1",
+            [$id]
+        );
+    }
+
+    public function checkPassword($user, $password)
     {
         // Check if it's old MD5 password (32 chars)
-        if (strlen($this->password) === 32 && md5($password) === $this->password) {
-            // MD5 password matches - don't upgrade due to column size limit
+        if (strlen($user['password']) === 32 && md5($password) === $user['password']) {
             return true;
         }
         
         // Check if it's bcrypt password (60 chars)
-        if (strlen($this->password) === 60) {
-            return Hash::check($password, $this->password);
+        if (strlen($user['password']) === 60) {
+            return password_verify($password, $user['password']);
         }
         
         return false;
     }
+
+    public function updateLoginInfo($userId, $ipAddress)
+    {
+        return $this->db->update(
+            $this->table,
+            [
+                'last_login' => now(),
+                'ip_address' => $ipAddress
+            ],
+            'WHERE id = ?',
+            [$userId]
+        );
+    }
+
+    public function updateLogoutInfo($userId)
+    {
+        return $this->db->update(
+            $this->table,
+            ['last_logout' => now()],
+            'WHERE id = ?',
+            [$userId]
+        );
+    }
+
+    public function getFullName($user)
+    {
+        return trim(($user['firstname'] ?? '') . ' ' . ($user['lastname'] ?? ''));
+    }
+
+    public function isAdmin($user)
+    {
+        return isset($user['is_admin']) && $user['is_admin'] == 1;
+    }
 }
+

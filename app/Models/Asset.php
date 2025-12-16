@@ -1,104 +1,85 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Asset extends Model
+class Asset
 {
-    use HasFactory;
+    private $db;
+    private $table = 'equipment';
+    private $primaryKey = 'equipment_id';
 
-    protected $table = 'equipment';
-    protected $primaryKey = 'equipment_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'equipment_name',
-        'type_id',
-        'model',
-        'serial_no',
-        'is_assign',
-    ];
-
-    protected $casts = [
-        'is_assign' => 'boolean',
-    ];
-
-    // Assignment Status Constants
     const STATUS_AVAILABLE = 0;
     const STATUS_ASSIGNED = 1;
 
-    /**
-     * Get the asset type
-     */
-    public function type()
+    public function __construct()
     {
-        return $this->belongsTo(AssetType::class, 'type_id', 'type_id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get all assignments for this asset
-     */
-    public function assignments()
+    public function getAll($filters = [])
     {
-        return $this->hasMany(AssetAssignment::class, 'equipment_id', 'equipment_id');
+        $sql = "SELECT 
+                    e.*,
+                    t.type_name
+                FROM {$this->table} e
+                LEFT JOIN equipment_type t ON e.type_id = t.type_id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['is_assign'])) {
+            $sql .= " AND e.is_assign = ?";
+            $params[] = $filters['is_assign'];
+        }
+        
+        if (isset($filters['type_id'])) {
+            $sql .= " AND e.type_id = ?";
+            $params[] = $filters['type_id'];
+        }
+        
+        $sql .= " ORDER BY e.equipment_name ASC";
+        
+        return $this->db->select($sql, $params);
     }
 
-    /**
-     * Get current assignment
-     */
-    public function currentAssignment()
+    public function findById($id)
     {
-        return $this->hasOne(AssetAssignment::class, 'equipment_id', 'equipment_id')
-            ->whereNull('return_date')
-            ->orWhere('return_date', '');
+        $sql = "SELECT 
+                    e.*,
+                    t.type_name
+                FROM {$this->table} e
+                LEFT JOIN equipment_type t ON e.type_id = t.type_id
+                WHERE e.{$this->primaryKey} = ?
+                LIMIT 1";
+        
+        return $this->db->selectOne($sql, [$id]);
     }
 
-    /**
-     * Get assignment history
-     */
-    public function assignmentHistory()
+    public function create($data)
     {
-        return $this->hasMany(AssetAssignment::class, 'equipment_id', 'equipment_id')
-            ->whereNotNull('return_date')
-            ->where('return_date', '!=', '')
-            ->orderBy('return_date', 'DESC');
+        return $this->db->insert($this->table, $data);
     }
 
-    /**
-     * Scope for available (unassigned) assets
-     */
-    public function scopeAvailable($query)
+    public function update($id, $data)
     {
-        return $query->where('is_assign', self::STATUS_AVAILABLE);
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 
-    /**
-     * Scope for assigned assets
-     */
-    public function scopeAssigned($query)
+    public function delete($id)
     {
-        return $query->where('is_assign', self::STATUS_ASSIGNED);
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 
-    /**
-     * Scope by type
-     */
-    public function scopeOfType($query, $typeId)
+    public function getAvailable()
     {
-        return $query->where('type_id', $typeId);
-    }
-
-    /**
-     * Search assets by name
-     */
-    public function scopeSearch($query, $term)
-    {
-        return $query->where('equipment_name', 'LIKE', "%{$term}%")
-            ->orWhere('model', 'LIKE', "%{$term}%")
-            ->orWhere('serial_no', 'LIKE', "%{$term}%");
+        return $this->getAll(['is_assign' => self::STATUS_AVAILABLE]);
     }
 }
-
 

@@ -1,80 +1,64 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Template extends Model
+class Template
 {
-    use HasFactory;
+    private $db;
+    private $table = 'template';
+    private $primaryKey = 'id';
 
-    protected $table = 'email_template';
-    protected $primaryKey = 'template_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'template_name',
-        'template_subject',
-        'template_body',
-        'template_type',
-        'status',
-    ];
-
-    protected $casts = [
-        'status' => 'boolean',
-    ];
-
-    // Template Types
-    const TYPE_EMAIL = 'email';
-    const TYPE_DOCUMENT = 'document';
-    const TYPE_SMS = 'sms';
-    const TYPE_NOTIFICATION = 'notification';
-
-    /**
-     * Scope for active templates
-     */
-    public function scopeActive($query)
+    public function __construct()
     {
-        return $query->where('status', 1);
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Scope by type
-     */
-    public function scopeOfType($query, $type)
+    public function getAll()
     {
-        return $query->where('template_type', $type);
+        return $this->db->select("SELECT * FROM {$this->table} ORDER BY template_name ASC");
     }
 
-    /**
-     * Search templates
-     */
-    public function scopeSearch($query, $term)
+    public function getActive()
     {
-        return $query->where('template_name', 'LIKE', "%{$term}%")
-            ->orWhere('template_subject', 'LIKE', "%{$term}%");
+        return $this->db->select("SELECT * FROM {$this->table} WHERE status = 1 ORDER BY template_name ASC");
     }
 
-    /**
-     * Replace template variables
-     */
-    public function render($variables = [])
+    public function findById($id)
     {
-        $body = $this->template_body;
-        $subject = $this->template_subject;
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
 
-        foreach ($variables as $key => $value) {
-            $placeholder = '{' . $key . '}';
-            $body = str_replace($placeholder, $value, $body);
-            $subject = str_replace($placeholder, $value, $subject);
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function render($templateContent, $data)
+    {
+        foreach ($data as $key => $value) {
+            $templateContent = str_replace('{{' . $key . '}}', $value, $templateContent);
         }
-
-        return [
-            'subject' => $subject,
-            'body' => $body
-        ];
+        return $templateContent;
     }
 }
-
 

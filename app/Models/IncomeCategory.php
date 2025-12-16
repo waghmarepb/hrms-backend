@@ -1,46 +1,51 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class IncomeCategory extends Model
+class IncomeCategory
 {
-    use HasFactory;
+    private $db;
+    private $table = 'income_information';
+    private $primaryKey = 'id';
 
-    protected $table = 'income_area';
-    protected $primaryKey = 'id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'income_field',
-    ];
-
-    /**
-     * Get all income entries for this category
-     */
-    public function incomes()
+    public function __construct()
     {
-        return $this->hasMany(Income::class, 'income_category_id', 'id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get the chart of account for this income category
-     */
-    public function chartOfAccount()
+    public function getAll()
     {
-        return $this->hasOne(ChartOfAccount::class, 'HeadName', 'income_field')
-            ->where('HeadType', 'I');
+        return $this->db->select("SELECT * FROM {$this->table} ORDER BY income_name ASC");
     }
 
-    /**
-     * Scope for active categories
-     */
-    public function scopeActive($query)
+    public function findById($id)
     {
-        return $query->orderBy('income_field', 'asc');
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
+
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 }
-
 

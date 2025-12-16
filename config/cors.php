@@ -1,18 +1,11 @@
 <?php
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
-    'allowed_methods' => ['*'],
-    'allowed_origins' => array_filter([
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:4200',
-        env('FRONTEND_URL'),
-        env('FRONTEND_URL_WWW'),
-    ]),
-    'allowed_origins_patterns' => [],
-    'allowed_headers' => ['*'],
+    'allowed_origins' => explode(',', getenv('CORS_ALLOWED_ORIGINS') ?: '*'),
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With'],
     'exposed_headers' => [],
-    'max_age' => 0,
+    'max_age' => 86400,
     'supports_credentials' => true,
 ];
+

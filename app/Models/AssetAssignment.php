@@ -1,102 +1,90 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class AssetAssignment extends Model
+class AssetAssignment
 {
-    use HasFactory;
+    private $db;
+    private $table = 'employee_equipment';
+    private $primaryKey = 'id';
 
-    protected $table = 'employee_equipment';
-    protected $primaryKey = 'id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'equipment_id',
-        'employee_id',
-        'issue_date',
-        'return_date',
-        'damarage_desc',
-    ];
-
-    protected $casts = [
-        'issue_date' => 'date',
-        'return_date' => 'date',
-    ];
-
-    /**
-     * Get the asset
-     */
-    public function asset()
+    public function __construct()
     {
-        return $this->belongsTo(Asset::class, 'equipment_id', 'equipment_id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get the employee
-     */
-    public function employee()
+    public function getAll($filters = [])
     {
-        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+        $sql = "SELECT 
+                    ea.*,
+                    e.equipment_name,
+                    t.type_name,
+                    CONCAT(emp.first_name, ' ', IFNULL(emp.middle_name, ''), ' ', emp.last_name) as employee_name
+                FROM {$this->table} ea
+                LEFT JOIN equipment e ON ea.equipment_id = e.equipment_id
+                LEFT JOIN equipment_type t ON e.type_id = t.type_id
+                LEFT JOIN employee_history emp ON ea.employee_id = emp.employee_id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['employee_id'])) {
+            $sql .= " AND ea.employee_id = ?";
+            $params[] = $filters['employee_id'];
+        }
+        
+        if (isset($filters['equipment_id'])) {
+            $sql .= " AND ea.equipment_id = ?";
+            $params[] = $filters['equipment_id'];
+        }
+        
+        if (isset($filters['active_only'])) {
+            $sql .= " AND (ea.return_date IS NULL OR ea.return_date = '' OR ea.return_date = '0000-00-00')";
+        }
+        
+        $sql .= " ORDER BY ea.issue_date DESC";
+        
+        return $this->db->select($sql, $params);
     }
 
-    /**
-     * Scope for active assignments (not returned)
-     */
-    public function scopeActive($query)
+    public function findById($id)
     {
-        return $query->where(function($q) {
-            $q->whereNull('return_date')
-              ->orWhere('return_date', '')
-              ->orWhere('return_date', '0000-00-00');
-        });
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
     }
 
-    /**
-     * Scope for returned assignments
-     */
-    public function scopeReturned($query)
+    public function create($data)
     {
-        return $query->whereNotNull('return_date')
-            ->where('return_date', '!=', '')
-            ->where('return_date', '!=', '0000-00-00');
+        return $this->db->insert($this->table, $data);
     }
 
-    /**
-     * Scope by employee
-     */
-    public function scopeForEmployee($query, $employeeId)
+    public function update($id, $data)
     {
-        return $query->where('employee_id', $employeeId);
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 
-    /**
-     * Scope by asset
-     */
-    public function scopeForAsset($query, $equipmentId)
+    public function delete($id)
     {
-        return $query->where('equipment_id', $equipmentId);
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 
-    /**
-     * Check if assignment is active
-     */
-    public function isActive()
+    public function getEmployeeAssets($employeeId)
     {
-        return empty($this->return_date) || 
-               $this->return_date == '0000-00-00' || 
-               $this->return_date == null;
+        return $this->getAll(['employee_id' => $employeeId, 'active_only' => true]);
     }
 
-    /**
-     * Check if asset has been returned
-     */
-    public function isReturned()
+    public function getEmployeeHistory($employeeId)
     {
-        return !$this->isActive();
+        return $this->getAll(['employee_id' => $employeeId]);
     }
 }
-
 

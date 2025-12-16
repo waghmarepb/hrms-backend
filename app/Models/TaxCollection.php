@@ -1,63 +1,80 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class TaxCollection extends Model
+class TaxCollection
 {
-    use HasFactory;
+    private $db;
+    private $table = 'tax_collection';
+    private $primaryKey = 'id';
 
-    protected $table = 'payroll_tax_collection';
-    protected $primaryKey = 'tax_coll_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'employee_id',
-        'sal_month',
-        'tax_rate',
-        'tax',
-        'net_amount',
-    ];
-
-    protected $casts = [
-        'tax_rate' => 'decimal:2',
-        'tax' => 'decimal:2',
-        'net_amount' => 'decimal:2',
-    ];
-
-    /**
-     * Get the employee
-     */
-    public function employee()
+    public function __construct()
     {
-        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Scope by month
-     */
-    public function scopeForMonth($query, $month)
+    public function getAll($filters = [])
     {
-        return $query->where('sal_month', $month);
+        $sql = "SELECT 
+                    tc.*,
+                    CONCAT(e.first_name, ' ', IFNULL(e.middle_name, ''), ' ', e.last_name) as employee_name
+                FROM {$this->table} tc
+                LEFT JOIN employee_history e ON tc.employee_id = e.employee_id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['employee_id'])) {
+            $sql .= " AND tc.employee_id = ?";
+            $params[] = $filters['employee_id'];
+        }
+        
+        if (isset($filters['year'])) {
+            $sql .= " AND tc.year = ?";
+            $params[] = $filters['year'];
+        }
+        
+        $sql .= " ORDER BY tc.collection_date DESC";
+        
+        return $this->db->select($sql, $params);
     }
 
-    /**
-     * Scope by employee
-     */
-    public function scopeForEmployee($query, $employeeId)
+    public function findById($id)
     {
-        return $query->where('employee_id', $employeeId);
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
     }
 
-    /**
-     * Scope by date range
-     */
-    public function scopeDateRange($query, $from, $to)
+    public function create($data)
     {
-        return $query->whereBetween('sal_month', [$from, $to]);
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function getSummary($filters = [])
+    {
+        $sql = "SELECT 
+                    COUNT(*) as total_collections,
+                    SUM(tax_amount) as total_amount
+                FROM {$this->table}
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['year'])) {
+            $sql .= " AND year = ?";
+            $params[] = $filters['year'];
+        }
+        
+        return $this->db->selectOne($sql, $params);
     }
 }
-
 

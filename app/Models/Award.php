@@ -1,70 +1,77 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Award extends Model
+class Award
 {
-    use HasFactory;
+    private $db;
+    private $table = 'award';
+    private $primaryKey = 'id';
 
-    protected $table = 'award';
-    protected $primaryKey = 'award_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'award_name',
-        'aw_description',
-        'awr_gift_item',
-        'date',
-        'employee_id',
-        'awarded_by',
-    ];
-
-    protected $casts = [
-        'date' => 'date',
-    ];
-
-    /**
-     * Get the employee who received the award
-     */
-    public function employee()
+    public function __construct()
     {
-        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get the person who gave the award
-     */
-    public function awardedBy()
+    public function getAll($filters = [])
     {
-        return $this->belongsTo(Employee::class, 'awarded_by', 'employee_id');
+        $sql = "SELECT 
+                    a.*,
+                    CONCAT(e.first_name, ' ', IFNULL(e.middle_name, ''), ' ', e.last_name) as employee_name
+                FROM {$this->table} a
+                LEFT JOIN employee_history e ON a.employee_id = e.employee_id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (isset($filters['employee_id'])) {
+            $sql .= " AND a.employee_id = ?";
+            $params[] = $filters['employee_id'];
+        }
+        
+        $sql .= " ORDER BY a.award_date DESC";
+        
+        return $this->db->select($sql, $params);
     }
 
-    /**
-     * Scope by employee
-     */
-    public function scopeForEmployee($query, $employeeId)
+    public function findById($id)
     {
-        return $query->where('employee_id', $employeeId);
+        $sql = "SELECT 
+                    a.*,
+                    CONCAT(e.first_name, ' ', IFNULL(e.middle_name, ''), ' ', e.last_name) as employee_name
+                FROM {$this->table} a
+                LEFT JOIN employee_history e ON a.employee_id = e.employee_id
+                WHERE a.{$this->primaryKey} = ?
+                LIMIT 1";
+        
+        return $this->db->selectOne($sql, [$id]);
     }
 
-    /**
-     * Scope by date range
-     */
-    public function scopeDateRange($query, $from, $to)
+    public function create($data)
     {
-        return $query->whereBetween('date', [$from, $to]);
+        return $this->db->insert($this->table, $data);
     }
 
-    /**
-     * Scope by award name
-     */
-    public function scopeByAwardName($query, $name)
+    public function update($id, $data)
     {
-        return $query->where('award_name', 'LIKE', "%{$name}%");
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function getEmployeeAwards($employeeId)
+    {
+        return $this->getAll(['employee_id' => $employeeId]);
     }
 }
-
 

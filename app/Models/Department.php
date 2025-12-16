@@ -1,29 +1,51 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Department extends Model
+class Department
 {
-    protected $table = 'department';
-    protected $primaryKey = 'dept_id';
-    public $timestamps = false;
+    private $db;
+    private $table = 'department';
+    private $primaryKey = 'dept_id';
 
-    protected $fillable = [
-        'department_name',
-        'parent_id',
-    ];
-
-    protected $appends = ['dept_name'];
-
-    public function getDeptNameAttribute()
+    public function __construct()
     {
-        return $this->department_name;
+        $this->db = Database::getInstance();
     }
 
-    public function employees()
+    public function getAll()
     {
-        return $this->hasMany(Employee::class, 'dept_id', 'dept_id');
+        return $this->db->select("SELECT * FROM {$this->table} ORDER BY department_name ASC");
+    }
+
+    public function findById($id)
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
+
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
+
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 }
+

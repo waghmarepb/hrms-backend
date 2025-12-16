@@ -1,67 +1,131 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Employee extends Model
+class Employee
 {
-    protected $table = 'employee_history';
-    protected $primaryKey = 'emp_his_id';
-    public $timestamps = false;
+    private $db;
+    private $table = 'employee_history';
+    private $primaryKey = 'emp_his_id';
 
-    protected $fillable = [
-        'employee_id',
-        'pos_id',
-        'first_name',
-        'middle_name',
-        'last_name',
-        'email',
-        'phone',
-        'alter_phone',
-        'present_address',
-        'parmanent_address',
-        'picture',
-        'dept_id',
-        'hire_date',
-        'dob',
-        'gender',
-        'marital_status',
-        'duty_type',
-        'is_admin',
-    ];
-
-    protected $appends = ['full_name', 'designation', 'department_name', 'status'];
-
-    public function getFullNameAttribute()
+    public function __construct()
     {
-        return trim($this->first_name . ' ' . $this->middle_name . ' ' . $this->last_name);
+        $this->db = Database::getInstance();
     }
 
-    public function getDesignationAttribute()
+    public function getAll()
     {
-        // You can add a relationship to position table if available
-        return $this->position->name ?? 'Employee';
+        $sql = "SELECT 
+                    e.*,
+                    d.department_name,
+                    p.position_name
+                FROM {$this->table} e
+                LEFT JOIN department d ON e.dept_id = d.dept_id
+                LEFT JOIN position p ON e.pos_id = p.pos_id
+                ORDER BY e.first_name ASC";
+        
+        $results = $this->db->select($sql);
+        
+        return array_map(function($row) {
+            return $this->formatEmployee($row);
+        }, $results);
     }
 
-    public function getDepartmentNameAttribute()
+    public function findById($id)
     {
-        return $this->department->department_name ?? 'No Department';
+        $sql = "SELECT 
+                    e.*,
+                    d.department_name,
+                    p.position_name
+                FROM {$this->table} e
+                LEFT JOIN department d ON e.dept_id = d.dept_id
+                LEFT JOIN position p ON e.pos_id = p.pos_id
+                WHERE e.{$this->primaryKey} = ?
+                LIMIT 1";
+        
+        return $this->db->selectOne($sql, [$id]);
     }
 
-    public function getStatusAttribute()
+    public function create($data)
     {
-        // If termination_date is in future or same as hire_date, considered active
-        return 'active';
+        return $this->db->insert($this->table, $data);
     }
 
-    public function department()
+    public function update($id, $data)
     {
-        return $this->belongsTo(Department::class, 'dept_id', 'dept_id');
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
     }
 
-    public function position()
+    public function delete($id)
     {
-        return $this->belongsTo(Position::class, 'pos_id', 'pos_id');
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
+
+    public function getFullName($employee)
+    {
+        return trim(
+            ($employee['first_name'] ?? '') . ' ' .
+            ($employee['middle_name'] ?? '') . ' ' .
+            ($employee['last_name'] ?? '')
+        );
+    }
+
+    private function formatEmployee($row)
+    {
+        return [
+            'id' => $row['emp_his_id'],
+            'employee_id' => $row['employee_id'],
+            'full_name' => $this->getFullName($row),
+            'fullName' => $this->getFullName($row),
+            'email' => $row['email'],
+            'phone' => $row['phone'],
+            'designation' => $row['position_name'] ?? 'Employee',
+            'department_name' => $row['department_name'] ?? 'No Department',
+            'departmentName' => $row['department_name'] ?? 'No Department',
+            'hire_date' => $row['hire_date'],
+            'status' => 'active',
+            'picture' => $row['picture'],
+        ];
+    }
+
+    public function formatDetailedEmployee($row)
+    {
+        if (!$row) {
+            return null;
+        }
+        
+        return [
+            'id' => $row['emp_his_id'],
+            'employee_id' => $row['employee_id'],
+            'full_name' => $this->getFullName($row),
+            'fullName' => $this->getFullName($row),
+            'first_name' => $row['first_name'],
+            'middle_name' => $row['middle_name'],
+            'last_name' => $row['last_name'],
+            'email' => $row['email'],
+            'phone' => $row['phone'],
+            'alter_phone' => $row['alter_phone'],
+            'designation' => $row['position_name'] ?? 'Employee',
+            'department_name' => $row['department_name'] ?? 'No Department',
+            'departmentName' => $row['department_name'] ?? 'No Department',
+            'dept_id' => $row['dept_id'],
+            'pos_id' => $row['pos_id'],
+            'present_address' => $row['present_address'],
+            'permanent_address' => $row['parmanent_address'],
+            'hire_date' => $row['hire_date'],
+            'dob' => $row['dob'],
+            'gender' => $row['gender'],
+            'marital_status' => $row['marital_status'],
+            'status' => 'active',
+            'picture' => $row['picture'],
+        ];
     }
 }
+

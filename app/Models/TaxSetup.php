@@ -1,83 +1,66 @@
 <?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class TaxSetup extends Model
+class TaxSetup
 {
-    use HasFactory;
+    private $db;
+    private $table = 'tax_setup';
+    private $primaryKey = 'id';
 
-    protected $table = 'payroll_tax_setup';
-    protected $primaryKey = 'tax_setup_id';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'start_amount',
-        'end_amount',
-        'rate',
-    ];
-
-    protected $casts = [
-        'start_amount' => 'decimal:2',
-        'end_amount' => 'decimal:2',
-        'rate' => 'decimal:2',
-    ];
-
-    /**
-     * Scope to order by amount range
-     */
-    public function scopeOrderByRange($query, $direction = 'ASC')
+    public function __construct()
     {
-        return $query->orderBy('start_amount', $direction);
+        $this->db = Database::getInstance();
     }
 
-    /**
-     * Get tax bracket for a given amount
-     */
-    public static function getTaxBracket($amount)
+    public function getAll()
     {
-        return self::where('start_amount', '<=', $amount)
-            ->where('end_amount', '>=', $amount)
-            ->first();
+        return $this->db->select("SELECT * FROM {$this->table} ORDER BY min_amount ASC");
     }
 
-    /**
-     * Calculate tax for a given amount
-     */
-    public static function calculateTax($amount)
+    public function findById($id)
     {
-        $brackets = self::orderByRange('ASC')->get();
-        $totalTax = 0;
-        $remainingAmount = $amount;
+        return $this->db->selectOne(
+            "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ? LIMIT 1",
+            [$id]
+        );
+    }
 
-        foreach ($brackets as $bracket) {
-            if ($remainingAmount <= 0) {
-                break;
-            }
+    public function create($data)
+    {
+        return $this->db->insert($this->table, $data);
+    }
 
-            $bracketStart = $bracket->start_amount;
-            $bracketEnd = $bracket->end_amount;
-            $rate = $bracket->rate;
+    public function update($id, $data)
+    {
+        return $this->db->update(
+            $this->table,
+            $data,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
 
-            // Calculate taxable amount in this bracket
-            if ($amount > $bracketEnd) {
-                $taxableInBracket = $bracketEnd - $bracketStart + 1;
-            } else {
-                $taxableInBracket = $amount - $bracketStart + 1;
-            }
+    public function delete($id)
+    {
+        return $this->db->delete(
+            $this->table,
+            "WHERE {$this->primaryKey} = ?",
+            [$id]
+        );
+    }
 
-            // Calculate tax for this bracket
-            if ($taxableInBracket > 0) {
-                $totalTax += ($taxableInBracket * $rate) / 100;
-            }
-
-            $remainingAmount -= $taxableInBracket;
+    public function calculateTax($income)
+    {
+        $sql = "SELECT * FROM {$this->table} 
+                WHERE ? >= min_amount AND ? <= max_amount 
+                LIMIT 1";
+        
+        $bracket = $this->db->selectOne($sql, [$income, $income]);
+        
+        if ($bracket) {
+            return ($income * $bracket['rate']) / 100;
         }
-
-        return round($totalTax, 2);
+        
+        return 0;
     }
 }
-
 
