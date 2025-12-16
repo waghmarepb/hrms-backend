@@ -1,0 +1,55 @@
+# Docker Ignore - Files to exclude from Docker build context
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+tests/
+phpunit.xml
+.phpunit.result.cache
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node modules (if any)
+node_modules/
+npm-debug.log
+yarn-error.log
+package.json
+package-lock.json
+webpack.mix.js
+
+# Storage directories (will be generated)
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# Vendor (will be installed during build)
+vendor/
+
+# Development files
+Homestead.json
+Homestead.yaml
+Vagrantfile
+docker-compose.yml
+docker-compose.override.yml
+
+# OS files
+.DS_Store
+Thumbs.db
+
