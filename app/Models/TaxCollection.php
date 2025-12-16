@@ -60,3 +60,4 @@ class TaxCollection extends Model
     }
 }
 
+

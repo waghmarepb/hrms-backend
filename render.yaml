@@ -1,0 +1,56 @@
+services:
+  # Web Service
+  - type: web
+    name: hrms-backend
+    env: php
+    region: oregon # Change to your preferred region
+    plan: free # Change to 'starter' or higher for production
+    buildCommand: bash build.sh
+    startCommand: php -S 0.0.0.0:$PORT -t public
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_NAME
+        value: HRMS Backend
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        sync: false # Set this in Render dashboard
+      - key: APP_KEY
+        generateValue: true # Render will generate this
+        sync: false
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: error
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false # Set this in Render dashboard (use your database host)
+      - key: DB_PORT
+        value: 3306
+      - key: DB_DATABASE
+        sync: false # Set this in Render dashboard
+      - key: DB_USERNAME
+        sync: false # Set this in Render dashboard
+      - key: DB_PASSWORD
+        sync: false # Set this in Render dashboard (use a secret)
+      - key: CACHE_DRIVER
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: SANCTUM_STATEFUL_DOMAINS
+        sync: false # Set this in Render dashboard (your frontend domain)
+      - key: SESSION_DOMAIN
+        sync: false # Set this in Render dashboard
+
+  # MySQL Database (Optional - if you want to use Render's managed database)
+  # - type: database
+  #   name: hrms-database
+  #   plan: free
+  #   databaseName: hrms
+  #   user: hrms_user
+

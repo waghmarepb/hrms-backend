@@ -1,0 +1,58 @@
+# Render Ignore - Files not needed for deployment
+# These files will be excluded from the deployment to save space and time
+
+# Documentation files
+*.md
+!README.md
+
+# Development files
+.git/
+.gitignore
+.gitattributes
+.editorconfig
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Testing files
+tests/
+phpunit.xml
+.phpunit.result.cache
+
+# Development dependencies (will be installed via composer)
+node_modules/
+package.json
+package-lock.json
+webpack.mix.js
+
+# Environment examples
+.env.example
+env.production.example
+
+# Storage (will be generated)
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Docker files (not needed on Render)
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+.dockerignore
+
+# Local development
+Homestead.json
+Homestead.yaml
+Vagrantfile
+
